@@ -1,0 +1,5 @@
+*.asv
+External_scripts/
+Analysis_files/
+Figures/
+Paths.m
