@@ -221,7 +221,7 @@ for exps = 1:num_exp
     name_parts = strsplit(tar_path_all{exps},'\');
     fish_name = name_parts{8};
     condition = name_parts{9};
-    % 
+    file_name = strjoin({condition,fish_name,'meta'},'_');
     
     
     %define the save path
