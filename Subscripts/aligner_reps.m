@@ -1,5 +1,5 @@
-function [singlez_mat,shift_mat,ave_frame,err_mat,single_reps] = ...
-    aligner_7(tar_path,tar_files,stim_num,rep_num,...
+function [singlez_mat,shift_mat] = ...
+    aligner_reps(tar_path,tar_files,stim_num,rep_id,...
     file_info,pre_time,tar_z,skip_stim,align_factor)
 
 %using the first file, find out the number of time points in the trace
@@ -9,8 +9,8 @@ time_num = length(first_info);
 im_width = first_info(1).Width;
 im_height = first_info(1).Height;
 
-%allocate memory for an average frame
-ave_frame = zeros(im_width,im_height);
+% %allocate memory for an average frame
+% ave_frame = zeros(im_width,im_height);
 
 %define the target z (replace with for loop once code runs)
 z = tar_z;
@@ -18,99 +18,86 @@ z = tar_z;
 exc_num = length(skip_stim);
 
 %allocate memory for the averaged and aligned stacks for this z section
-singlez_mat = zeros(im_height,im_width,time_num*(stim_num+exc_num*rep_num),'single');
-%allocate memory for the output SNR matrix
-err_mat = zeros(im_height,im_width,stim_num);
+singlez_mat = zeros(im_height,im_width,time_num*(stim_num+exc_num),'single');
+% err_mat = zeros(im_height,im_width,stim_num);
 %also initialize a matrix to store the shifts in x and y
-shift_mat = zeros(rep_num,time_num,stim_num,2);
+shift_mat = zeros(time_num,stim_num,2);
 %initialize a stack counter
 st_counter = 1;
-%and an exclusion counter
-ex_counter = time_num*stim_num+1;
-% allocate memory for the single reps across stimuli
-single_reps  = zeros(im_height,im_width,rep_num,time_num,stim_num);
+% %and an exclusion counter
+% ex_counter = time_num*stim_num+1;
 %for all of the stimuli
 for stim = 1:stim_num
     
     fprintf(strcat('Stim: ',num2str(stim),'\n'))
     %allocate memory to store the stacks
-    singlestim_mat  = zeros(im_height,im_width,rep_num,time_num,'uint16');
-%     singlestim_mat  = zeros(im_height,im_width,rep_num,time_num);
-
+    singlestim_mat  = zeros(im_height,im_width,time_num,'uint16');
     %find the file coordinates involved with this stimulus
     curr_coord = find(file_info(:,3)==stim&file_info(:,4)==z);
-    
-    
-    %for all the reps
-    for reps = 1:rep_num
-%         singlestim_mat(:,:,reps,:) = TIFFStack(fullfile(tar_path,tar_files{curr_coord(reps)}));
-%         a = TIFFStack(fullfile(tar_path,tar_files{curr_coord(reps)}));
+%     %for all the reps
+%     for reps = 1:rep_num
        %for all the time points
         for timep = 1:time_num     
             %load each frame
-            singlestim_mat(:,:,reps,timep) = imread(fullfile(tar_path,tar_files{curr_coord(reps)}),timep);
+            singlestim_mat(:,:,timep) = imread(fullfile(tar_path,tar_files{curr_coord(rep_id)}),timep);
         end
-    end
-    %create a temporary copy of singlestim in double precision
-    singlestim_copy = double(singlestim_mat);
-    %calculate the error
-    err_mat(:,:,stim) = var(squeeze(mean(singlestim_copy,3)),0,3)./mean(squeeze(var(singlestim_copy,0,4)),3);
-    %delete the copy
-    clear('singlestim_copy');
+%     end
+%     %create a temporary copy of singlestim in double precision
+%     singlestim_copy = double(singlestim_mat);
+%     %calculate the error
+%     err_mat(:,:,stim) = var(squeeze(mean(singlestim_copy,3)),0,3)./mean(squeeze(var(singlestim_copy,0,4)),3);
+%     %delete the copy
+%     clear('singlestim_copy');
     
-    %calculate the average frame for anatomy
-    ave_frame = ave_frame + mean(mean(singlestim_mat,4),3)/stim_num;
+%     %calculate the average frame for anatomy
+%     ave_frame = ave_frame + mean(mean(singlestim_mat,4),3)/stim_num;
     %create an averaged stack for alignment only
     %get the resulting number of slices
     ave_slices = time_num/align_factor;
     %allocate memory for the stack
-    ave_stack = zeros(im_height,im_width,rep_num,ave_slices);
+    ave_stack = zeros(im_height,im_width,ave_slices);
     %for all the new slices
     for slices = 1:ave_slices
         %calculate the stack
-        ave_stack(:,:,:,slices) = ...
-            mode(singlestim_mat(:,:,:,1+align_factor*(slices-1):align_factor*slices),4);
+        ave_stack(:,:,slices) = ...
+            mode(singlestim_mat(:,:,1+align_factor*(slices-1):align_factor*slices),3);
     end
     
     %define the max allowed shift
     max_shift = 3;
     %align the stack before averaging
-    [astack,shift_mat(:,:,stim,1),shift_mat(:,:,stim,2)] = ...
-        realign_1(singlestim_mat,1,max_shift,uint16(ave_stack));
+    [astack,shift_mat(:,stim,1),shift_mat(:,stim,2)] = ...
+        realign_1(singlestim_mat,0,max_shift,uint16(ave_stack));
  
     %turn astack into a single and subtract baseline from microscope
     %WARNING, SYSTEM SPECIFIC
     astack = single(astack) - 99;
     
     %use bsxfun to calculate dfof
-    pre_ave = mean(astack(:,:,:,pre_time),4);
-%     pre_ave = prctile(astack,50,4);
-%     pre_all = astack(:,:,:,pre_time);
-%     figure
-%     histogram(pre_all(:),1000)
+    pre_ave = mean(astack(:,:,pre_time),3);
     dfof_mat = bsxfun(@minus,astack,pre_ave);
     dfof_mat = bsxfun(@rdivide,dfof_mat,pre_ave);
-    dfof_mat(isnan(dfof_mat)) = 0;
     
-    %if it's a skip (RF stim)
-    if any(skip_stim==stim)
-        %take the mode of the reps
-        singlez_mat(:,:,st_counter:stim*time_num) = squeeze(mode(dfof_mat,3));
+%     %if it's a skip (RF stim)
+%     if any(skip_stim==stim)
+%         %take the mode of the reps
+%         singlez_mat(:,:,st_counter:stim*time_num) = squeeze(mode(dfof_mat,3));
+% 
+%         %and also position the concatenated reps for response calculation
+%         %at the end of the stack
+%         %for all the reps
+%         for reps = 1:rep_num
+%             singlez_mat(:,:,ex_counter:ex_counter+time_num-1) = squeeze(dfof_mat(:,:,reps,:));
+%             %update the exclusion counter
+%             ex_counter = ex_counter + time_num;
+%         end
+%         %if not
+%     else
+%         %average the reps together
+%         singlez_mat(:,:,st_counter:stim*time_num) = squeeze(mean(dfof_mat,3));
+%     end
 
-        %and also position the concatenated reps for response calculation
-        %at the end of the stack
-        %for all the reps
-        for reps = 1:rep_num
-            singlez_mat(:,:,ex_counter:ex_counter+time_num-1) = squeeze(dfof_mat(:,:,reps,:));
-            %update the exclusion counter
-            ex_counter = ex_counter + time_num;
-        end
-        %if not
-    else
-        %average the reps together
-        singlez_mat(:,:,st_counter:stim*time_num) = squeeze(mean(dfof_mat,3));
-        single_reps(:,:,:,:,stim) = dfof_mat;
-    end
+    singlez_mat(:,:,st_counter:stim*time_num) = dfof_mat;
     %update the stim counter
     st_counter = st_counter + time_num;
     

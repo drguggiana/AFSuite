@@ -8,7 +8,7 @@ clearvars
 close all
 Paths
 %% Define the list of control fish so they are named as such
-
+% profile on
 control_list = {'Imax10','Imax11','X2','X3','X4','X5','X6'};
 %% Define miscellaneous constants
 
@@ -32,7 +32,8 @@ save_var = 1;
 %% Load the files and define paths
 
 %get the folder where the image files are4
-tar_path_all_pre = uipickfiles('FilterSpec','D:\Clemens_shared\_all_fish_raw');
+tar_path_all_pre = uipickfiles('FilterSpec',raw_path);
+% tar_path_all_pre = {'D:\Clemens_shared\_all_fish_raw\A3'};
 % %extract all subfolders on that folder (deepest level)
 % tar_path_all = path_sub_1(tar_path_all{1});
 
@@ -50,50 +51,9 @@ for subdir = 1:length(tar_path_all)
 end
 %concatenate the full list of files
 tar_path_all = vertcat(tar_path_all{:});
-% %exclude the files with no REP in the same folder as REP files
-% %get the files with REP first
-% rep_files = ~cellfun(@isempty,strfind(tar_path_all,'REP'));
-% %and another variable with the files without
-% norep_files = ~rep_files;
-% %get the number of rep files
-% repf_num = sum(rep_files);
-% %and the actual file names
-% rep_list = tar_path_all(rep_files);
-% %also the norep files
-% norep_list = tar_path_all(norep_files);
-% 
-% %for all the rep files
-% for repfs = 1:repf_num
-%     %extract the rep from the file name
-%     norep = strsplit(rep_list{repfs},'\');
-%     norep = norep{end}(5:end);
-%     %find the no rep string in the no rep list
-%     isrep = norep_list(~cellfun(@isempty,strfind(norep_list,norep)));
-%     %replace the file name in the main list with a 0
-%     tar_path_all{strcmp(tar_path_all,isrep)} = false;
-% end
-% 
-% %get rid of the zeros in the main list
-% tar_path_all = tar_path_all(~cellfun(@islogical,tar_path_all)) ;
 
 %get the number of experiments selected
 num_exp = length(tar_path_all);
-% %get a flag for pre and post for each file
-% prepost_vec = ones(num_exp,1);
-% %mark the post files with a 2
-% prepost_vec(~cellfun(@isempty,strfind(tar_path_all,'Post'))) = 2;
-% %get the name of the fish
-% fish_name = strsplit(tar_path_all{1},'\');
-% fish_name = fish_name{4};
-% %create the target folders
-% mkdir(save_path,fish_name)
-% save_path_ori = fullfile(save_path,fish_name);
-% mkdir(save_path_ori,'pre')
-% save_cell = {fullfile(save_path_ori,'pre'),[]};
-% if sum(prepost_vec==2)>0
-%     mkdir(save_path_ori,'post')
-%     save_cell{2} = fullfile(save_path_ori,'post');
-% end
 %% Run the main processing loop
 %for all the experiments
 info = cell(num_exp,1);
@@ -104,7 +64,6 @@ for exp_ind = 1:num_exp
     %% And parse them based on their filenames
 %     info{exp_ind} = parser_2(tar_path);
     [file_info,stim_num,rep_num,z_num,tar_files] = parser_2(tar_path);
-
     %using the first file, find out the number of time points in the trace
     first_info = imfinfo(fullfile(tar_path,tar_files{1}));
     time_num = length(first_info);
@@ -114,6 +73,8 @@ for exp_ind = 1:num_exp
     im_cell = cell(z_num,1);
     %also for the traces
     trace_cell = cell(z_num,1);
+    % for the single reps
+    reps_cell = cell(z_num,1);
     %for the shifts
     shift_cell = cell(z_num,1);
     %and for the SNR
@@ -125,11 +86,11 @@ for exp_ind = 1:num_exp
 
     %define the pre and post periods
     pre_time = false(time_num,1);
-    pre_time(1:0.25*time_num) = 1;
+    pre_time(1:20) = 1;
     stim_time = false(time_num,1);
-    stim_time(0.25*time_num+1:0.75*time_num) = 1;
+    stim_time(21:60) = 1;
     post_time = false(time_num,1);
-    post_time(0.75*time_num+1:end) = 1;
+    post_time(61:end) = 1;
 
     %allocate memory to store the correlation stack and the shuff one
     corr_stack = zeros(first_info(1).Height,first_info(1).Width,z_num);
@@ -148,7 +109,7 @@ for exp_ind = 1:num_exp
     %for all the z sections
     parfor z = 1:z_num
         %% Calculate dfof, compress replicates, accumulate and align
-        [singlez_mat,shift_cell{z},ave_frame{z},snr_mat] = ...
+        [singlez_mat,shift_cell{z},ave_frame{z},snr_mat,single_reps] = ...
             aligner_7(tar_path,tar_files,stim_num,rep_num,file_info,pre_time,z...
             ,skip_stim,mode_wind);
 
@@ -188,21 +149,26 @@ for exp_ind = 1:num_exp
 
         %allocate memory for storing the traces
         seed_currz = zeros(seed_num,total_frames);
+        % also for the single reps
+        seed_currz_singlereps = zeros(rep_num,time_num,stim_num,seed_num);
         %and for the snr output
         snr_currz = zeros(seed_num,stim_num);
-        %initialize a frame counter
-        frame_counter = 1;
-        %for all the frames
-        for frames = 1:total_frames        
-            %load the current frame
-            curr_frame = singlez_mat(:,:,frames);
-            %for all the seeds in this z section
-            for seed = 1:seed_num
-                %add the intensities for each frame and store in the seed
-                seed_currz(seed,frame_counter) = mean(curr_frame(seed_cell{z}(seed).pxlist));
+        
+        % for all the seeds
+        for seed = 1:seed_num
+            % get the coordinates of the seed
+            [x,y] = ind2sub([size(singlez_mat,1),size(singlez_mat,2)],seed_cell{z}(seed).pxlist);
+            % get the number of points
+            number_points = length(x);
+            % for all the points
+            for points = 1:number_points
+                % calculate the average of the values
+                seed_currz(seed,:) = seed_currz(seed,:) + ...
+                    squeeze(singlez_mat(x(points),y(points),:))'./number_points;
+                % also for the reps
+                seed_currz_singlereps(:,:,:,seed) = seed_currz_singlereps(:,:,:,seed) + ...
+                    squeeze(single_reps(x(points),y(points),:,:,:))./number_points;
             end
-            %update the frame counter
-            frame_counter = frame_counter + 1;
         end
 
         %also calculate the snr for each seed by averaging across the snr of
@@ -222,6 +188,8 @@ for exp_ind = 1:num_exp
         trace_cell{z} = reshape(seed_currz,[seed_num,time_num,stim_num]); 
         %and the snr of the seeds in this z
         snr_cell{z} = snr_currz;
+        % save the single reps
+        reps_cell{z} = permute(seed_currz_singlereps,[4 2 3 1]);
     end
 
     %turn the average cell into a stack
@@ -239,13 +207,13 @@ for exp_ind = 1:num_exp
     %% Configure the z information
 
     %concatenate the trace cell info
-    all_trace = vertcat(trace_cell{:});
+    conc_trace = vertcat(trace_cell{:});
 
     %also for the seed_cell
     seed_concat = horzcat(seed_cell{:})';
 
     %create a vector with the z of each seed
-    z_seed = zeros(size(all_trace,1),1);
+    z_seed = zeros(size(conc_trace,1),1);
     %initialize a counter
     z_count = 1;
     %for all the zs
@@ -258,7 +226,9 @@ for exp_ind = 1:num_exp
         z_count = z_count + z_seednum;
     end
     %format the input matrix for saving
-    conc_trace = reshape(all_trace,size(all_trace,1),size(all_trace,2)*size(all_trace,3));
+    conc_trace = reshape(conc_trace,size(conc_trace,1),size(conc_trace,2)*size(conc_trace,3));
+    % also the reps info
+    reps_trace = cat(1,reps_cell{:});
     %% Save analysis output
     if save_var == 1
 
@@ -269,7 +239,7 @@ for exp_ind = 1:num_exp
         ori_folder = strsplit(ori_folder,'\');
         fish_id = ori_folder{4};
         prepost_id = ori_folder{5};
-        if isempty(strfind(prepost_id,'Pre'))
+        if contains(prepost_id,'Pre') == 0
             if any(strcmp(fish_id,control_list))
                 prepost_id = 'control';
             else
@@ -282,7 +252,7 @@ for exp_ind = 1:num_exp
         %assemble the folder path
         save_path = fullfile(save_path_ori,fish_id,prepost_id);
         %if it doesn't exist, create it
-        if ~isdir(save_path)
+        if ~isfolder(save_path)
             mkdir(save_path)
         end
         
@@ -293,18 +263,14 @@ for exp_ind = 1:num_exp
 
         % save the trace cell extracted from the fluo data
         save_trace = strcat(ori_name,'_traces.mat');
-        save(fullfile(save_path,save_trace),'conc_trace','trace_cell','seed_cell',...
-            'shift_cell','ave_stack','seed_concat','z_seed','snr_cell')
+        save(fullfile(save_path,save_trace),'conc_trace','seed_cell',...
+            'ave_stack','seed_concat','z_seed','snr_cell','reps_trace',...
+            'time_num','stim_num')
 
-        %and save variables for plotting and such
-        save_plot = strcat(ori_name,'_plot.mat');
-        save(fullfile(save_path,save_plot),'time_num','stim_num')
         %save the average stack for the dataset, including the seed
         %positions
         %define the saving path
         fig_path = save_path;
-%         %parse the file name
-%         [~,ori_name,~] = fileparts(tar_path);
         %add the file name extension
         fig_name = strcat(ori_name,'_anato.tif');
         %assemble the final path
@@ -323,3 +289,5 @@ for exp_ind = 1:num_exp
         end
     end
 end
+% profile viewer
+% profile off
