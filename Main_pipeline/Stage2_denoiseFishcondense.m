@@ -10,13 +10,11 @@ Paths
 %% Load the files and define paths
 
 %get the folder where the image files are
-% tar_path_all_pre = uipickfiles('FilterSpec','E:\Behavioral data\Matlab\AF_proc\Clemens_suite\pipeline_test\Stage1\*.mat');
 tar_path_all_pre = uipickfiles('FilterSpec',fullfile(analysis_path,'Stage1'));
 
 % define the save path
-save_path = fullfile(analysis_path,'Stage2');
-% %get the file paths from the selected folder
-% tar_path_all = path_sub_1(tar_path_all{1});
+save_path = fullfile(analysis_path,'Meta_files');
+
 %allocate memory for the path list
 tar_path_all = cell(size(tar_path_all_pre));
 
@@ -39,9 +37,8 @@ num_exp = length(tar_path_all);
 %define the list of labels to sort the files
 label_list = {'_traces.mat'};
 for exps = 1:num_exp
-    % %get the number of each type of data (the round is to avoid the nonscalar
-    % %warning for the for loop)
-    % num_data = round(num_exp./length(label_list));
+    
+    fprintf(strjoin({'Current experiment:',num2str(exps),'out of',num2str(num_exp),'\r\n'},'_'))
     %get a list of file names in the directory
     file_list = dir(strcat(tar_path_all{exps},'\*.mat'));
     file_list = {file_list.name};
@@ -67,19 +64,16 @@ for exps = 1:num_exp
     time_num = load(name_cell{1},'time_num');
     time_num = time_num.time_num;
     %get the number of stimuli
-    stim_num2 = load(name_cell{1},'stim_num');
-    stim_num2 = stim_num2.stim_num;
+    stim_num = load(name_cell{1},'stim_num');
+    stim_num = stim_num.stim_num;
     %% Get the snr threshold
 
-    %load the thresholding parameters from the constants file
-%     constants_path = 'E:\Behavioral data\Matlab\AF_proc\Clemens_suite\20170827_Software_pipeline\subfunctions and scripts\pipeline_constants.mat';
-    
+    %load the thresholding parameters from the constants file    
     percentile_constant = load(constants_path,'percentile_constant');
     percentile_constant = percentile_constant.percentile_constant;
     stimulus_constant = load(constants_path,'stimulus_constant');
     stimulus_constant = stimulus_constant.stimulus_constant;
-    
-    
+      
     %allocate memory to store the snr for the entire fish
     snr_all = cell(num_data,1);
     %for all the files
@@ -92,20 +86,16 @@ for exps = 1:num_exp
     snr_mat = cat(1,snr_all{:});
 
     %allocate memory for storing the thresholds
-    thres_vec = zeros(stim_num2,1);
+    thres_vec = zeros(stim_num,1);
 
     %for all of the stimuli
-    for stim = 1:stim_num2
+    for stim = 1:stim_num
         %calculate the 25th percentile and store as the threshold
         thres_vec(stim) = prctile(snr_mat(:,stim),percentile_constant);
     end
-
-    % figure
-    % plot(thres_vec)
     %% Load the traces 
     
     %define a list of the stimuli to keep
-    % keep_stim = [1 3 13 14 10 12];
     keep_stim = [];
     %load and concatenate all the traces
 
@@ -137,6 +127,15 @@ for exps = 1:num_exp
         z_seed = load(name_cell{fish,1},'z_seed');
         z_seed = z_seed.z_seed;
         
+        % concatenate the coordinate information
+        % for all the seeds
+        for seeds = 1:length(z_seed)
+            seed_concat(seeds).z = z_seed(seeds);
+            seed_concat(seeds).experiment = fish;
+        end
+        % store in the cell
+        seed_data{fish} = seed_concat;
+        
         if ~isempty(keep_stim)
             %load a temp matrix for calculations
             temp_mat = trace_all{fish};
@@ -159,7 +158,7 @@ for exps = 1:num_exp
             %if it's the first fish
             if fish == 1
                 %redefine the number of stimuli
-                stim_num2 = length(keep_stim);
+                stim_num = length(keep_stim);
                 %also modify the color matrix
                 col_out = col_out(keep_stim,:,:);
             end
@@ -169,6 +168,7 @@ for exps = 1:num_exp
     %concatenate the responses
     conc_trace = vertcat(conc_trace{:});
     reps_trace = vertcat(reps_trace{:});
+    seed_data = vertcat(seed_data{:});
     %and create a vector with the fish of origin for each seed and the original
     %seed number
     fish_ori = zeros(size(conc_trace,1),2);
@@ -197,8 +197,8 @@ for exps = 1:num_exp
     %get the binary version of the traces
     snr_bin = bsxfun(@gt,snr_mat,thres_vec');
 
-    thres_res = zeros(stim_num2,1);
-    for t = 1:stim_num2
+    thres_res = zeros(stim_num,1);
+    for t = 1:stim_num
         %to do this, AND the columns of the snr matrix
         snr_vec = logical(sum(snr_bin,2)<t);
         %get the number of traces excluded
@@ -213,32 +213,65 @@ for exps = 1:num_exp
     conc_trace = conc_trace(snr_vec,:);
     fish_ori = fish_ori(snr_vec,:);
     % also the single reps
-    reps_trace = reps_trace(snr_vec,:,:,:);    
+    reps_trace = reps_trace(snr_vec,:,:,:);  
+    % and the coordinates
+    seed_data = seed_data(snr_vec);
     %% Save analysis output
     
-    % assemble the path for the structure
+    % assemble the path for the traces
     % parse the Stage 1 path
     name_parts = strsplit(tar_path_all{exps},'\');
     fish_name = name_parts{8};
     condition = name_parts{9};
-    file_name = strjoin({condition,fish_name,'meta'},'_');
     
+    file_name_trial_ave = strjoin({condition,fish_name,'trial_ave'},'_');
+    path_trial_ave = fullfile(traces_path,file_name_trial_ave);
+    file_name_single_reps = strjoin({condition,fish_name,'single_reps'},'_');
+    path_single_reps = fullfile(traces_path,file_name_single_reps);
     
-    %define the save path
-%     save_path = 'E:\Behavioral data\Matlab\AF_proc\Clemens_suite\pipeline_test\Stage2\';
-
-%     save_var = 1;
-%     if save_var == 1
-% 
-%     %     %get the root of the save name
-%     %     [ori_name,~] = uiputfile(strcat(save_path,'*.*'));
-%         %aseemble the path
-%         full_name = strsplit(tar_path_all{exps},'\');
-% 
-%         %save the clustering output
-%         save_clu = strcat(full_name{8},'_',full_name{9},'_wholefish.mat');
-%         save(fullfile(save_path,save_clu),'conc_trace','stim_num2','snr_vec','-v7.3')
-%     end
+    % save the files
+    file_ID = fopen(path_single_reps,'w');
+    fwrite(file_ID,conc_trace,'double');
+    fclose(file_ID);
+    
+    file_ID = fopen(path_trial_ave,'w');
+    fwrite(file_ID,reps_trace,'double');
+    fclose(file_ID);
+    
+    %% Load the average stack
+    ave_stack = load(name_cell{fish,1},'ave_stack');
+    ave_stack = ave_stack.ave_stack;
     %% Assemble the structure with the metadata
+    main_str = struct([]);
+    
+    % fish name
+    main_str(1).fish_name = fish_name;
+    % condition
+    main_str(1).condition = condition;
+    % path to the traces file
+    main_str(1).path_trial_ave = path_trial_ave;
+    % path to the single reps
+    main_str(1).path_single_reps = path_single_reps;
+    % fish ori
+    main_str(1).fish_ori = fish_ori;
+    % coordinate info
+    main_str(1).seed_data = seed_data;
+    % snr
+    main_str(1).snr_vec = snr_vec;
+    % average stack
+    main_str(1).ave_stack = ave_stack;
+    % time num
+    main_str(1).time_num = time_num;
+    % stim num
+    main_str(1).stim_num = stim_num;
+    % number of reps
+    main_str(1).rep_num = size(reps_trace,4);
+    % list of files included in the experiment (matching the seed_data)
+    main_str(1).files = name_cell;
+    
     %% Save the structure
+    file_name_meta = strjoin({condition,fish_name,'meta'},'_');
+    
+    save(fullfile(save_path,condition,file_name_meta),'main_str')
+    
 end
