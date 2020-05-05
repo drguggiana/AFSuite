@@ -231,11 +231,11 @@ for exps = 1:num_exp
     
     % save the files
     file_ID = fopen(path_single_reps,'w');
-    fwrite(file_ID,conc_trace,'double');
+    fwrite(file_ID,reps_trace,'double');
     fclose(file_ID);
     
     file_ID = fopen(path_trial_ave,'w');
-    fwrite(file_ID,reps_trace,'double');
+    fwrite(file_ID,conc_trace,'double');
     fclose(file_ID);
     
     %% Load the average stack
