@@ -11,8 +11,10 @@ close all
 Paths
 %% Load the files and define paths
 
+% define whether to use parallel for loops
+parallel = 1;
 % define the groups to cluster
-target_groups = {'precontrol'};
+target_groups = {'postcontrol'};
 
 % assemble the overall path
 main_path = fullfile(analysis_path,'Meta_files');
@@ -20,10 +22,13 @@ main_path = fullfile(analysis_path,'Meta_files');
 % load the paths
 [group_folders,num_subfolders] = group_loader(target_groups,main_path);
 
+% load the constants
+constants = load(constants_path,'constants');
+constants = constants.constants;
 % for all the subfolders
 for group = 1:num_subfolders
     % load the traces
-    [main_cell,conc_trace_all,fish_ori_all,num_fish] = main_loader(group_folders(group),1);
+    [main_cell,conc_trace_all,fish_ori_all,num_fish,name_cell] = main_loader(group_folders(group),1);
 
     %% Extract the singular values for activity of the directional stimuli
     % define the type of extraction
@@ -33,19 +38,30 @@ for group = 1:num_subfolders
     
     % clean up memory
     clear conc_trace_all    
-    %% Run the sPCA on selected data
+    %% Load the snr info
+    % allocate memory for the info
+    snr_info = cell(num_fish,1);
+    % for all the fish
+    for fish = 1:num_fish
+        snr_info{fish} = main_cell{fish}.snr_mat(main_cell{fish}.snr_vec,:);
+    end
+    % concatenate the values
+    snr_info = vertcat(snr_info{:});
+    %% Run the sPCA and cluster the selected data
     
     % restructure tconc_trace for the parallel loop
     feature_cell = cell(3,1);
     index_cell = cell(3,1);
+    snr_cell = cell(3,1);
     for celltype = 1:3
         feature_cell{celltype} = tconc_trace(dsi_clas_final==(celltype-1),1:sum(stim_length(1:end-1)));
         index_cell{celltype} = tconc_trace(dsi_clas_final==(celltype-1),sum(stim_length(1:end-1))+1:end);
+        snr_cell{celltype} = snr_info(dsi_clas_final==(celltype-1),:);
     end
     % allocate memory for the clustering results
     gmm_str = struct([]);
     % create the pool of workers
-    if group == 1
+    if group == 1 && parallel == 1
         worker_pool = parpool;
     end
     
@@ -70,16 +86,26 @@ for group = 1:num_subfolders
         temp_clu_vec = clu_vec(clu_vec<size(index_cell{celltype},1));
         
         % SPCA and cluster
-        [gmm_str(celltype).idx_clu,gmm_str(celltype).GMM,gmm_str(celltype).clu_num,~,gmm_str(celltype).bic] =...
+        [temp_idx_clu,gmm_str(celltype).GMM,temp_clu_num,~,gmm_str(celltype).bic] =...
             sPCA_GMM_cluster(feature_cell{celltype},bounds,K,t_bins,pca_vec,temp_clu_vec,replicates,4,...
             index_cell{celltype});
-
+        
+        % clean up the clusters
+        [gmm_str(celltype).idx_clu,gmm_str(celltype).clu_num] = ...
+            cluster_cleanup(temp_idx_clu,temp_clu_num,...
+            feature_cell{celltype},snr_cell{celltype},constants);
     end
     % if it's the last run, delete the pool
-    if group == num_subfolders
+    if group == num_subfolders && parallel == 1
         delete(worker_pool)
     end
     %% Save analysis output
+    
+    % save the clustering structure
+    % assemble the name
+    clustering_name = strjoin({'Clustering',target_groups{group}},'_');
+    % save the file
+    save(fullfile(clustering_path,clustering_name),'gmm_str')
     
     % update the main_str for each fish
     % for all the fish
@@ -100,14 +126,11 @@ for group = 1:num_subfolders
         end
         % store in the main structure
         main_str.idx_cell = temp_cell;
+        % store the path to the gmm
+        main_str.path_gmm_str = fullfile(clustering_path,clustering_name);
         
         % save the structure
         save(name_cell{fish},'main_str');
     end
-    % also save the clustering structure
-    % assemble the name
-    clustering_name = strjoin({'Clustering',target_groups{group}},'_');
-    % save the file
-    save(fullfile(clustering_path,clustering_name),'gmm_str')
     
 end

@@ -197,15 +197,15 @@ switch varargin{7}
         varargout{2} = bic_vec;
         %find the minimum of the BIC function
         [~,clu_coord] = min(bic_vec);
-        %also find the place in the function where the delta BIC goes below a
-        %threshold
-        temp_vec = 2.*diff((-log(bic_vec)));
-        [~,temp_coord] = find(temp_vec<0.007,1,'first');
-        temp_coord = temp_coord + 1;
-        %decide which one to use based on which one is smaller
-        if temp_coord < clu_coord
-            clu_coord = temp_coord;
-        end
+%         %also find the place in the function where the delta BIC goes below a
+%         %threshold
+%         temp_vec = 2.*diff((-log(bic_vec)));
+%         [~,temp_coord] = find(temp_vec<0.007,1,'first');
+%         temp_coord = temp_coord + 1;
+%         %decide which one to use based on which one is smaller
+%         if temp_coord < clu_coord
+%             clu_coord = temp_coord;
+%         end
         clu_num = clu_vec(clu_coord);
         GMModel = model_vec{clu_coord};
         

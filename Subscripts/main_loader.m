@@ -1,11 +1,19 @@
-function [main_cell,conc_trace_all,fish_ori_all,num_fish] = main_loader(group_path,flag)
+function [main_cell,conc_trace_all,fish_ori_all,num_fish,name_cell] = main_loader(group_path,flag,varargin)
 % Load the main (and alternatively the traces) from the given folder
 
 % get the files in the subfolder
 % tar_path_temp = dir(fullfile(group_folders(group).folder,group_folders(group).name,'*.mat'));
 tar_path_temp = dir(fullfile(group_path.folder,group_path.name,'*.mat'));
-% get the number of experiments
-num_fish = length(tar_path_temp);
+
+% if the fish number is given, use that fish number
+if length(varargin) == 1
+    num_fish = varargin{1};
+    tar_path_temp = tar_path_temp(1:num_fish);
+else
+    % get the number of experiments
+    num_fish = length(tar_path_temp);
+end
+
 % allocate memory for the full paths
 name_cell = cell(num_fish,1);
 % turn into a cell

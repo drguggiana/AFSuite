@@ -12,6 +12,9 @@ Paths
 %get the folder where the image files are
 tar_path_all_pre = uipickfiles('FilterSpec',fullfile(analysis_path,'Stage1'));
 
+% load the constants
+load(constants_path)
+
 % define the save path
 save_path = fullfile(analysis_path,'Meta_files');
 
@@ -256,8 +259,10 @@ for exps = 1:num_exp
     main_str(1).fish_ori = fish_ori;
     % coordinate info
     main_str(1).seed_data = seed_data;
-    % snr
+    % snr binary vector
     main_str(1).snr_vec = snr_vec;
+    % actual snr values
+    main_str(1).snr_mat = snr_mat;
     % average stack
     main_str(1).ave_stack = ave_stack;
     % time num
