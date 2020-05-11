@@ -7,8 +7,10 @@ group_folders = group_folders(3:end);
 % get the number of subfolders
 num_subfolders = length(group_folders);
 keep_vector = zeros(num_subfolders,1);
+
 % for all the groups
 for group = 1:num_subfolders
+
     if any(strcmp(target_groups,group_folders(group).name))
         keep_vector(group) = 1;
     else

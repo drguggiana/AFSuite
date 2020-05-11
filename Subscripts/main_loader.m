@@ -6,7 +6,7 @@ function [main_cell,conc_trace_all,fish_ori_all,num_fish,name_cell] = main_loade
 tar_path_temp = dir(fullfile(group_path.folder,group_path.name,'*.mat'));
 
 % if the fish number is given, use that fish number
-if length(varargin) == 1
+if length(varargin) >= 1 && ~isempty(varargin{1})
     num_fish = varargin{1};
     tar_path_temp = tar_path_temp(1:num_fish);
 else

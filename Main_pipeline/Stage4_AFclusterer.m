@@ -14,7 +14,7 @@ Paths
 % define whether to use parallel for loops
 parallel = 1;
 % define the groups to cluster
-target_groups = {'postcontrol'};
+target_groups = {'post','postcontrol'};
 
 % assemble the overall path
 main_path = fullfile(analysis_path,'Meta_files');
@@ -118,12 +118,16 @@ for group = 1:num_subfolders
         
         % allocate memory to store the indexes
         temp_cell = cell(3,1);
+        temp_dsiosi = cell(3,1);
         % for all the celltypes
         for celltype = 1:3
             % get the fish id vector for the type
             type_ori = fish_ori_all(dsi_clas_final==(celltype-1));
             temp_cell{celltype} = gmm_str(celltype).idx_clu(type_ori==fish);
+            temp_dsiosi{celltype} = index_cell{celltype}(type_ori==fish,:);
         end
+        % store the indexes
+        main_str.dsiosi = temp_dsiosi;
         % store in the main structure
         main_str.idx_cell = temp_cell;
         % store the path to the gmm

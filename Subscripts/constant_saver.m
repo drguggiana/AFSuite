@@ -25,6 +25,11 @@ constants(1).num_thres = 100;
 
 % p value for significance of the cluster correlations
 constants(1).pval = 0.05;
+%% Define labels
+% allocate the structure
+labels = struct([]);
+% labels for the 3 categories of cells
+labels(1).celltype = {'Non-selective','Direction selective','Orientation selective'};
 %% Define the af labels
 af_labels = struct([]);
 n=1;
@@ -68,8 +73,9 @@ af_labels(n).name = 'AF9v';
 af_labels(n).number = '3';
 n = n+1;
 
-
-% list of AFs contained in every data set, utilized by several stages
+% store in the structure
+labels.af = af_labels;
+%% list of AFs contained in every data set, utilized by several stages
 % including Stage3 and others
 %determined manually by Clemens
 af_list = cell(39,1);
@@ -372,4 +378,4 @@ af_list = af_list(~cellfun('isempty', af_list'));
 %save path
 % save_path = 'E:\Behavioral data\Matlab\AF_proc\Clemens_suite\20170827_Software_pipeline\subfunctions and scripts\pipeline_constants.mat';
 save_path = constants_path;
-save(save_path,'constants','af_list','af_labels')
+save(save_path,'constants','af_list','labels')

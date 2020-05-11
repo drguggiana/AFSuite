@@ -73,7 +73,7 @@ for stim_type = 1:stimTypeNum
     boot_dsiosi = zeros(trace_num,2);
     
     % allocate memory for the shuffles
-    shuff_ang =zeros(boot_num,8);
+    shuff_ang = zeros(boot_num,8);
     % generate the shuffles
     for ii=1:boot_num
         shuff_ang(ii,:) = randperm(8);
@@ -87,20 +87,20 @@ for stim_type = 1:stimTypeNum
         tc_mat(seeds,:) = V(:,1);
         % if it's not the on off, calculate DSI, OSI
         if stim_type~=4
-            % calculate the DSI
+            % calculate the DSI and OSI
             real_dsiosi(seeds,1) = norm(sum(exp_dsi.*V(:,1)),2);
             real_dsiosi(seeds,2) = norm(sum(exp_osi.*V(:,1)),2);
             % allocate memory for the bootstrap result
             boot_res = zeros(boot_num,2);
             % allocate memory for executing the shuffle
-            tempV =  repmat(V(:,1),1,boot_num);
+            tempV = repmat(V(:,1),1,boot_num);
 
             % shuffle the angles
             tempV = tempV(shuff_ang');
             % calculate the shuffle result
             boot_res(:,1) = vecnorm(sum(tempV.*exp_dsi,1),2,1);
             boot_res(:,2) = vecnorm(sum(tempV.*exp_osi,1),2,1);
-            % calculate OSI
+            % calculate the bootstrapped DSI and OSI
             boot_dsiosi(seeds,1) = sum(boot_res(:,1)>=real_dsiosi(seeds,1))./boot_num;
             boot_dsiosi(seeds,2) = sum(boot_res(:,2)>=real_dsiosi(seeds,2))./boot_num;
         end

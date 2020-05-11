@@ -246,11 +246,11 @@ for exp_ind = 1:num_exp
                 prepost_id = 'post';
             end
         else
-            if any(strcmp(fish_id,control_list))
-                prepost_id = 'precontrol';
-            else
-                prepost_id = 'pre';
-            end
+%             if any(strcmp(fish_id,control_list))
+%                 prepost_id = 'precontrol';
+%             else
+            prepost_id = 'pre';
+%             end
         end
         
         %assemble the folder path

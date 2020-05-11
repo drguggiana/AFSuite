@@ -245,7 +245,7 @@ for group = 1:num_subfolders
         %% Add the AF data to the meta data and save
         
         % write the field in the structure
-        main_str.AF_info = af_fish;
+        main_str.AF_info = af_fish{fish};
         % save the file where it was
         save(name_cell{fish},'main_str');
     end

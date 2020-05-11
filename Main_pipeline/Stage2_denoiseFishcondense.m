@@ -13,7 +13,8 @@ Paths
 tar_path_all_pre = uipickfiles('FilterSpec',fullfile(analysis_path,'Stage1'));
 
 % load the constants
-load(constants_path)
+constants = load(constants_path,'constants');
+constants = constants.constants;
 
 % define the save path
 save_path = fullfile(analysis_path,'Meta_files');
@@ -72,10 +73,12 @@ for exps = 1:num_exp
     %% Get the snr threshold
 
     %load the thresholding parameters from the constants file    
-    percentile_constant = load(constants_path,'percentile_constant');
-    percentile_constant = percentile_constant.percentile_constant;
-    stimulus_constant = load(constants_path,'stimulus_constant');
-    stimulus_constant = stimulus_constant.stimulus_constant;
+%     percentile_constant = load(constants_path,'percentile_constant');
+%     percentile_constant = percentile_constant.percentile_constant;
+%     stimulus_constant = load(constants_path,'stimulus_constant');
+%     stimulus_constant = stimulus_constant.stimulus_constant;
+    percentile_constant = constants.perc;
+    stimulus_constant = constants.stimuli;
       
     %allocate memory to store the snr for the entire fish
     snr_all = cell(num_data,1);
@@ -244,8 +247,23 @@ for exps = 1:num_exp
     %% Load the average stack
     ave_stack = load(name_cell{fish,1},'ave_stack');
     ave_stack = ave_stack.ave_stack;
+    %% Check for the structure
+    
+    %assemble the putative path
+    file_name_meta = strjoin({condition,fish_name,'meta'},'_');
+    full_save_path = fullfile(save_path,condition,file_name_meta);
+    
+    % check if the file exists
+    if isfile(full_save_path)
+        % load the structure
+        main_str = load(full_save_path,'main_str');
+        main_str = main_str.main_str;
+    else
+        % create the structure anew
+        main_str = struct([]);
+    end
+
     %% Assemble the structure with the metadata
-    main_str = struct([]);
     
     % fish name
     main_str(1).fish_name = fish_name;
@@ -275,8 +293,7 @@ for exps = 1:num_exp
     main_str(1).files = name_cell;
     
     %% Save the structure
-    file_name_meta = strjoin({condition,fish_name,'meta'},'_');
     
-    save(fullfile(save_path,condition,file_name_meta),'main_str')
+    save(full_save_path,'main_str')
     
 end
