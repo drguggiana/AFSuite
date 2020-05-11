@@ -241,12 +241,16 @@ for exp_ind = 1:num_exp
         prepost_id = ori_folder{5};
         if contains(prepost_id,'Pre') == 0
             if any(strcmp(fish_id,control_list))
-                prepost_id = 'control';
+                prepost_id = 'postcontrol';
             else
                 prepost_id = 'post';
             end
         else
+%             if any(strcmp(fish_id,control_list))
+%                 prepost_id = 'precontrol';
+%             else
             prepost_id = 'pre';
+%             end
         end
         
         %assemble the folder path
@@ -263,7 +267,7 @@ for exp_ind = 1:num_exp
 
         % save the trace cell extracted from the fluo data
         save_trace = strcat(ori_name,'_traces.mat');
-        save(fullfile(save_path,save_trace),'conc_trace','seed_cell',...
+        save(fullfile(save_path,save_trace),'conc_trace',...
             'ave_stack','seed_concat','z_seed','snr_cell','reps_trace',...
             'time_num','stim_num')
 
