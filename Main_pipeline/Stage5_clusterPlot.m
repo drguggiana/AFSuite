@@ -5,7 +5,7 @@ Paths
 %% Load the traces
 
 % define the figure path
-fig_path = fullfile(fig_path,'clusterAverages');
+figure_path = fullfile(fig_path,'clusterAverages');
 
 % load the labels
 labels = load(constants_path,'labels');
@@ -15,7 +15,7 @@ af_labels = labels.af;
 celltype_labels = labels.celltype;
 
 % define the groups to cluster
-target_groups = 'postcontrol';
+target_groups = {'pre','post','postcontrol'};
 
 % assemble the overall path
 main_path = fullfile(analysis_path,'Meta_files');
@@ -23,10 +23,13 @@ main_path = fullfile(analysis_path,'Meta_files');
 % load the paths
 [group_folders,num_subfolders] = group_loader(target_groups,main_path);
 
+% allocate memory to store the compiled results
+group_cell = cell(num_subfolders,3);
+
 % for all the subfolders
 for group = 1:num_subfolders
     % load the traces
-    [main_cell,~,~,num_fish] = main_loader(group_folders,0);
+    [main_cell,~,~,num_fish] = main_loader(group_folders(group),0);
     
     % allocate memory for the averages
     cluster_averages = cell(num_fish,3);
@@ -90,7 +93,7 @@ for group = 1:num_subfolders
         set(gca,'TickLength',[0 0])
         % define the path and save
         file_path = strjoin({'clusterAverages',target_groups{group},celltype_labels{celltype},'.png'},'_');
-        saveas(gcf, fullfile(fig_path,file_path), 'png')
+        saveas(gcf, fullfile(figure_path,file_path), 'png')
         
     end
     autoArrangeFigures
@@ -144,14 +147,97 @@ for group = 1:num_subfolders
         set(gca,'TickLength',[0 0])
         % define the path and save
         file_path = strjoin({'clusterPerRegion',target_groups{group},celltype_labels{celltype},'.png'},'_');
-        saveas(gcf, fullfile(fig_path,file_path), 'png')
+        saveas(gcf, fullfile(figure_path,file_path), 'png')
     end
     
     autoArrangeFigures
+    
+    % store the averages and split by region
+    group_cell{group,1} = fish_average;
+    group_cell{group,2} = anatomy_cell;
+    group_cell{group,3} = main_cell;
 end
-%% Compare the cluster averages and region profiles for each group
+%% Compare the cluster averages
 
+close all
+% get the combinations and their number
+combo_vector = nchoosek(1:num_subfolders,2);
+num_comb = size(combo_vector,1);
 
+% for all celltypes
+for celltype = 1:3
+    figure
+    % for all the combinations
+    for combo = 1:num_comb
+        % get the data
+        average1 = group_cell{combo_vector(combo,1),1}{celltype};
+        average2 = group_cell{combo_vector(combo,2),1}{celltype};
+        
+        % reshape them to 2D
+        average1 = sort_traces(reshape(average1,size(average1,1),[]));
+        average2 = sort_traces(reshape(average2,size(average2,1),[]));
+        
+        % get the correlation matrix between them and plot
+        [correlation,pval] = corr(average1',average2');
+        
+%         % nan the non-significant values
+%         correlation(pval<0.05) = NaN;
+
+        % calculate the mean
+        mean_corr = nanmean(correlation(:));
+        % plot the correlation
+        subplot(1,3,combo)
+        imagesc(correlation)
+        title(strjoin({num2str(mean_corr)},' '))
+        
+        sgtitle(celltype_labels{celltype})
+        ylabel(target_groups{combo_vector(combo,1)})
+        xlabel(target_groups{combo_vector(combo,2)})
+        axis equal
+        axis tight
+    end
+    
+end
+autoArrangeFigures
+%% Compare the region profiles
+close all
+% get the combinations and their number
+combo_vector = nchoosek(1:num_subfolders,2);
+num_comb = size(combo_vector,1);
+
+% for all celltypes
+for celltype = 1:3
+    figure
+    % for all the combinations
+    for combo = 1:num_comb
+        % get the data
+        main1 = group_cell{combo_vector(combo,1),3};
+        main2 = group_cell{combo_vector(combo,2),3};
+        
+        average1 = mean(average1,3);
+        average2 = mean(average2,3);
+        % reshape them to 2D
+        average1 = sort_traces(average1);
+        average2 = sort_traces(average2);
+        
+        % get the correlation matrix between them and plot
+        [correlation,pval] = corr(average1,average2);
+        
+        % nan the non-significant values
+        correlation(pval<0.05) = NaN;
+%         % sort the matrix
+%         [~,idx] = sort(nanmax(correlation,[],1));
+        
+        % plot the correlation
+        subplot(1,3,combo)
+        imagesc(correlation)
+        title(strjoin({target_groups{combo_vector(combo,1)},target_groups{combo_vector(combo,2)}},' '))
+        sgtitle(celltype_labels{celltype})
+        
+    end
+    
+end
+autoArrangeFigures
 %% OFF define the groups to cluster
 % target_groups = {'precontrol'};
 %
