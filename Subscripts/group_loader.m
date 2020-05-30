@@ -19,5 +19,11 @@ for group = 1:num_subfolders
 end
 % select the subfolders
 group_folders = group_folders(keep_vector==1);
+% sort the folders according to the given vector
+folder_names = {group_folders.name};
+[~,~,ib] = intersect(target_groups,folder_names,'stable');
+group_folders = group_folders(ib);
+
+
 % update the number of subfolders
 num_subfolders = length(group_folders);
