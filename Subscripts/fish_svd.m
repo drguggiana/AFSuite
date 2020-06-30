@@ -1,11 +1,17 @@
-function [trace_num, seed_output, stim_length, stim_num3, dsi_clas_final]=fish_svd(seed_form,stimTypeNum)
-
-
+function [trace_num, seed_output, stim_length, stim_num3, dsi_clas_final]=fish_svd(seed_form,stimTypeNum,varargin)
 % function to calculate the svd of the stimuli involved in the
 % experiment(i.e. a lot of hardcoded boundaries between stimuli and such)
 % the function outputs the svd'd traces and their tuning curves, plus the
 % lengths of the stimuli and the number
 
+% define verbosity
+if length(varargin)>=1
+    verbose = varargin{1};
+else
+    verbose = 0;
+end
+
+% define the number of bootstraps
 boot_num = 1000;
 %define the set of angles
 angle_vec = [135 180 225 270 315 360 45 90];
@@ -42,7 +48,10 @@ trace_length = zeros(stimTypeNum,2);
 %for the three stimulus types
 for stim_type = 1:stimTypeNum
     
-    fprintf(strcat('SVD Current stim:',num2str(stim_type),'\r\n'))
+    % if verbosity is on
+    if verbose
+        fprintf(strcat('SVD Current stim:',num2str(stim_type),'\r\n'))
+    end
     %based on the type of stimulus, define the stim numbers and the time
     %intervals to consider (the eclipses keep running after 60)
     switch stim_type
