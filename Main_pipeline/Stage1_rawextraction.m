@@ -16,14 +16,22 @@ control_list = {'Imax10','Imax11','X2','X3','X4','X5','X6'};
 % save_path_ori = 'C:\Clemens_suite\2020\pipeline_test\Stage1';
 save_path_ori = fullfile(analysis_path,'Stage1');
 
+% define whether to work in parallel or not
+parallel = 1;
+
 %don't need this, just leave as is
 skip_stim = [];
 comb_vec = [];
 
+% % maximum allowed area for a seed
+% thres_area = 5;
+% %minimum seed area
+% thres_minarea = 3;
+
 % maximum allowed area for a seed
-thres_area = 5;
+thres_area = 150;
 %minimum seed area
-thres_minarea = 3;
+thres_minarea = 5;
 
 %define the amount of mode taking when aligning
 mode_wind = 5;
@@ -102,7 +110,7 @@ for exp_ind = 1:num_exp
     total_frames = stim_num*time_num;
 
     %if it's the first iteration
-    if exp_ind == 1
+    if exp_ind == 1 && parallel == 1
         %activate the parallel pool
         gcp = parpool;
     end
@@ -166,8 +174,11 @@ for exp_ind = 1:num_exp
                 seed_currz(seed,:) = seed_currz(seed,:) + ...
                     squeeze(singlez_mat(x(points),y(points),:))'./number_points;
                 % also for the reps
+                % eliminate the x and y dimensions, but spare reps
+                single_reps_temp = reshape(single_reps(x(points),y(points),:,:,:),[rep_num,time_num,stim_num]);
+                
                 seed_currz_singlereps(:,:,:,seed) = seed_currz_singlereps(:,:,:,seed) + ...
-                    squeeze(single_reps(x(points),y(points),:,:,:))./number_points;
+                    single_reps_temp./number_points;
             end
         end
 
@@ -200,7 +211,7 @@ for exp_ind = 1:num_exp
     ave_stack(end-4:end,:,:) = NaN;
     ave_stack(:,end-4:end,:) = NaN;
     %if it's the last iteration
-    if exp_ind == num_exp
+    if exp_ind == num_exp && parallel == 1
         %delete the parallel pool (closing it)
         delete(gcp)
     end
@@ -281,9 +292,11 @@ for exp_ind = 1:num_exp
         fig_full = fullfile(fig_path,fig_name);
         %for all the z slices
         for z = 1:z_num
-            %calculate the fused image with the average stack and the seeds
-            %plotted
-            C = imfuse(ave_stack(:,:,z),im_cell{z});
+%             %calculate the fused image with the average stack and the seeds
+%             %plotted
+%             C = imfuse(ave_stack(:,:,z),im_cell{z});
+            % save the average stack
+            C = uint16(normr_1(ave_stack(:,:,z),0).*255);
             %write the images
             if z ==1
                 imwrite(C,fig_full,'tif','Resolution',size(C),'WriteMode','overwrite')
