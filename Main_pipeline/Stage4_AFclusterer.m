@@ -11,10 +11,12 @@ close all
 Paths
 %% Load the files and define paths
 
+% set the rng
+rng(1);
 % define whether to use parallel for loops
 parallel = 1;
 % define the groups to cluster
-target_groups = {'post','postcontrol'};
+target_groups = {'pre','post','postcontrol'};
 
 % assemble the overall path
 main_path = fullfile(analysis_path,'Meta_files');
@@ -29,7 +31,9 @@ constants = constants.constants;
 for group = 1:num_subfolders
     % load the traces
     [main_cell,conc_trace_all,fish_ori_all,num_fish,name_cell] = main_loader(group_folders(group),1);
-
+    
+    %% Get the total signal
+    total_signal = sum(abs(conc_trace_all),2);
     %% Extract the singular values for activity of the directional stimuli
     % define the type of extraction
     stimTypeNum = 4;
@@ -37,7 +41,12 @@ for group = 1:num_subfolders
     [~,tconc_trace, stim_length, stim_num, dsi_clas_final] = fish_svd(conc_trace_all,stimTypeNum);
     
     % clean up memory
-    clear conc_trace_all    
+    clear conc_trace_all
+    %% Get the  preferred direction and on-off
+    
+    [~,pref_dir] = max(tconc_trace(:,51:58),[],2);
+    
+    on_off = (tconc_trace(:,225)<tconc_trace(:,226))+1;
     %% Load the snr info
     % allocate memory for the info
     snr_info = cell(num_fish,1);
@@ -53,10 +62,16 @@ for group = 1:num_subfolders
     feature_cell = cell(3,1);
     index_cell = cell(3,1);
     snr_cell = cell(3,1);
+    prefdir_cell = cell(3,1);
+    onoff_cell = cell(3,1);
+    signal_cell = cell(3,1);
     for celltype = 1:3
         feature_cell{celltype} = tconc_trace(dsi_clas_final==(celltype-1),1:sum(stim_length(1:end-1)));
         index_cell{celltype} = tconc_trace(dsi_clas_final==(celltype-1),sum(stim_length(1:end-1))+1:end);
         snr_cell{celltype} = snr_info(dsi_clas_final==(celltype-1),:);
+        prefdir_cell{celltype} = pref_dir(dsi_clas_final==(celltype-1));
+        onoff_cell{celltype} = on_off(dsi_clas_final==(celltype-1));
+        signal_cell{celltype} = total_signal(dsi_clas_final==(celltype-1));
     end
     % allocate memory for the clustering results
     gmm_str = struct([]);
@@ -119,17 +134,28 @@ for group = 1:num_subfolders
         % allocate memory to store the indexes
         temp_cell = cell(3,1);
         temp_dsiosi = cell(3,1);
+        temp_prefdir = cell(3,1);
+        temp_onoff = cell(3,1);
+        temp_signal = cell(3,1);
         % for all the celltypes
         for celltype = 1:3
             % get the fish id vector for the type
             type_ori = fish_ori_all(dsi_clas_final==(celltype-1));
             temp_cell{celltype} = gmm_str(celltype).idx_clu(type_ori==fish);
             temp_dsiosi{celltype} = index_cell{celltype}(type_ori==fish,:);
+            temp_prefdir{celltype} = prefdir_cell{celltype}(type_ori==fish);
+            temp_onoff{celltype} = onoff_cell{celltype}(type_ori==fish);
+            temp_signal{celltype} = signal_cell{celltype}(type_ori==fish);
         end
         % store the indexes
         main_str.dsiosi = temp_dsiosi;
         % store in the main structure
         main_str.idx_cell = temp_cell;
+        
+        % store the pref dir and on off
+        main_str.prefdir = temp_prefdir;
+        main_str.onoff = temp_onoff;
+        main_str.signal = temp_signal;
         % store the path to the gmm
         main_str.path_gmm_str = fullfile(clustering_path,clustering_name);
         

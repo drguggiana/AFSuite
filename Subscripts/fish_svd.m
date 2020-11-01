@@ -11,6 +11,14 @@ else
     verbose = 0;
 end
 
+% get the classification if already provided
+if length(varargin) >= 2
+    dsi_clas_final = varargin{2};
+    class_flag = 1;
+else
+    class_flag = 0;
+end
+
 % define the number of bootstraps
 boot_num = 1000;
 %define the set of angles
@@ -81,11 +89,14 @@ for stim_type = 1:stimTypeNum
     real_dsiosi = zeros(trace_num,2);
     boot_dsiosi = zeros(trace_num,2);
     
-    % allocate memory for the shuffles
-    shuff_ang = zeros(boot_num,8);
-    % generate the shuffles
-    for ii=1:boot_num
-        shuff_ang(ii,:) = randperm(8);
+    % only get the permutations if the classification is not given
+    if class_flag == 0
+        % allocate memory for the shuffles
+        shuff_ang = zeros(boot_num,8);
+        % generate the shuffles
+        for ii=1:boot_num
+            shuff_ang(ii,:) = randperm(8);
+        end
     end
     %for every seed
     for seeds = 1:trace_num
@@ -99,19 +110,23 @@ for stim_type = 1:stimTypeNum
             % calculate the DSI and OSI
             real_dsiosi(seeds,1) = norm(sum(exp_dsi.*V(:,1)),2);
             real_dsiosi(seeds,2) = norm(sum(exp_osi.*V(:,1)),2);
-            % allocate memory for the bootstrap result
-            boot_res = zeros(boot_num,2);
-            % allocate memory for executing the shuffle
-            tempV = repmat(V(:,1),1,boot_num);
+            
+            % only shuffle if the class is not provided
+            if class_flag == 0
+                % allocate memory for the bootstrap result
+                boot_res = zeros(boot_num,2);
+                % allocate memory for executing the shuffle
+                tempV = repmat(V(:,1),1,boot_num);
 
-            % shuffle the angles
-            tempV = tempV(shuff_ang');
-            % calculate the shuffle result
-            boot_res(:,1) = vecnorm(sum(tempV.*exp_dsi,1),2,1);
-            boot_res(:,2) = vecnorm(sum(tempV.*exp_osi,1),2,1);
-            % calculate the bootstrapped DSI and OSI
-            boot_dsiosi(seeds,1) = sum(boot_res(:,1)>=real_dsiosi(seeds,1))./boot_num;
-            boot_dsiosi(seeds,2) = sum(boot_res(:,2)>=real_dsiosi(seeds,2))./boot_num;
+                % shuffle the angles
+                tempV = tempV(shuff_ang');
+                % calculate the shuffle result
+                boot_res(:,1) = vecnorm(sum(tempV.*exp_dsi,1),2,1);
+                boot_res(:,2) = vecnorm(sum(tempV.*exp_osi,1),2,1);
+                % calculate the bootstrapped DSI and OSI
+                boot_dsiosi(seeds,1) = sum(boot_res(:,1)>=real_dsiosi(seeds,1))./boot_num;
+                boot_dsiosi(seeds,2) = sum(boot_res(:,2)>=real_dsiosi(seeds,2))./boot_num;
+            end
         end
     end
     
@@ -137,10 +152,12 @@ end
 seed_output = cat(2,dsiosi_cell{:,1:2});
 % seed_output = dsiosi_cell;
 
-% classify the ROI regardless of stimulus
-dsi_clas_final = zeros(trace_num,1);
-dsi_clas_final(any(dsi_clas==2,2))=2;
-dsi_clas_final(any(dsi_clas==1,2))=1;
+% classify the ROI regardless of stimulus if not already provided
+if class_flag == 0
+    dsi_clas_final = zeros(trace_num,1);
+    dsi_clas_final(any(dsi_clas==2,2))=2;
+    dsi_clas_final(any(dsi_clas==1,2))=1;
+end
 
 %define the stimuli lengths
 % stim_length = sum(trace_length,2)';
