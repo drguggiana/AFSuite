@@ -9,7 +9,8 @@ average_str = load(metapost_path);
 average_str = average_str.average_str;
 %% Define some constants
 
-target_groups = fields(average_str);
+% target_groups = fields(average_str);
+target_groups = {'pre'};
 num_subfolders = length(target_groups);
 
 % load the labels
@@ -24,6 +25,167 @@ figure_path = fullfile(fig_path,'clusterAverages');
 
 % get the total number of regions
 num_regions = length(af_labels);
+%% Plot the cluster averages
+
+% define the target regions
+target_regions = {'AF5','AF8','AF9d','AF9v'};
+num_targets = length(target_regions);
+
+close all
+% for all celltypes
+for celltype = 1:3
+    figure
+    counter = 1;
+    % get the data
+    main1 = average_str.(target_groups{1}).region_ave(celltype);
+    % for all the regions
+    for region = 1:length(af_labels)
+        
+        
+        % get the current region name
+        current_region = af_labels(region).name;
+        if sum(contains(target_regions,current_region))==0
+            continue
+        end
+        % extract the region of interest
+        average1 = main1.(current_region);
+
+        
+        % reshape them to 2D
+        average1 = sort_traces(reshape(average1,size(average1,1),[]));
+        
+
+        %             % nan the non-significant values
+        %             correlation(pval<0.05) = NaN;
+        
+        subplot(round(sqrt(num_targets)),ceil(sqrt(num_targets)),counter)
+        counter = counter + 1;
+        imagesc(normr_1(average1,0))
+        set(gca,'CLim',[0 1],'TickLength',[0 0],'YTick',[],'XTick',[])
+        xlabel(current_region)
+        axis tight
+
+%         % plot the correlation
+%         subplot(4,4,region)
+%         imagesc(correlation)
+%         axis equal
+%         axis tight
+%         set(gca,'CLim',[0 1],'TickLength',[0 0],'YTick',[],'XTick',[])
+%         title(strjoin({target_groups{combo_vector(combo,1)},...
+%             target_groups{combo_vector(combo,2)},current_region},' '),...
+%             'Interpreter','None')
+    end
+    sgtitle(celltype_labels{celltype})
+    
+end
+%% Quantify correspondence between clusters
+close all
+% define the type of extraction
+stimTypeNum = 4;
+% get the number of fish in the pre group
+pre_number = size(average_str.pre.meta,1);
+
+
+    
+% for all the celltypes
+for celltype = 1:3
+    per_fish = zeros(pre_number,num_regions,8,2);
+    % for all the fish in the pre group
+    for fish = 1:pre_number
+        
+        fprintf(strjoin({'Current fish:',num2str(fish),'out of',num2str(pre_number),'\r\n'},' '))
+        % get the fish name
+        fish_name = average_str.pre.meta(fish).fish_name;
+%         corr_fig = figure;
+%         histo_fig = figure;
+%         % set up a counter for the matches
+%         match_counter = struct([]);
+        
+        
+        % get the fish averages per region
+        pre_averages = average_str.pre.region_ave_perfish{fish,celltype};
+        
+        % get the matching averages
+        
+        % get the counts too
+        pre_counts = average_str.pre.region_counts;
+        
+        % compare the averages
+        % for all the regions
+        for region = 1:length(af_labels)
+            % get the current region name
+            current_region = af_labels(region).name;
+            
+            % check if the region is in the fish
+            if contains(current_region,fields(pre_averages)) == 0
+                continue
+            end
+            % extract the region of interest
+            average1 = pre_averages.(current_region);
+            
+            average1(isnan(average1)) = 0;
+%             if isempty(average1) || isempty(average2)
+%                 continue
+%             end
+            
+%             % reshape them to 2D
+%             average1 = sort_traces(reshape(average1,size(average1,1),[]));
+%             average2 = sort_traces(reshape(average2,size(average2,1),[]));
+% 
+%             % get the correlation matrix between them and plot
+%             [correlation,pval] = corr(average1',average2','rows','pairwise');
+
+            % run the svd on the averages
+            [~,pre_svd] = fish_svd(average1,stimTypeNum);
+
+            % separate the cells based on pref dir/ori and on/off
+            [~,pref_dir] = max(pre_svd(:,51:58),[],2);
+            on_off = (pre_svd(:,225)<pre_svd(:,226))+1;
+            % collapse into a matrix with only on/off and dir
+            temp_pre = zeros(8,2);
+            
+            % for all the clusters
+            for clu = 1:size(pref_dir,1)
+                temp_pre(pref_dir(clu),on_off(clu)) = ...
+                    temp_pre(pref_dir(clu),on_off(clu)) + pre_counts{fish,celltype}(region,clu);
+            end
+              
+            
+            % store the overall result per animal
+            per_fish(fish,region,:,:) = temp_pre;
+            
+        end
+%         % save the correlation figure
+%         figure(corr_fig)
+
+        
+        
+%         % define the path and save
+%         set(gcf,'Color','w')
+%         file_path = fullfile(figure_path,'PerFish',strjoin({'correlationPerRegionPerFish','pre',...
+%             match_group,celltype_labels{celltype},fish_name,'.png'},'_'));
+%         export_fig(file_path,'-r600')
+        
+
+    end
+    % average across fish and plot
+    figure
+    sgtitle(celltype_labels{celltype})
+    % for all the regions
+    for region = 1:length(af_labels)
+        subplot(round(sqrt(length(af_labels))),ceil(sqrt(length(af_labels))),region)
+        
+        imagesc(squeeze(mean(per_fish(:,region,:,:),1)))
+        xlabel(af_labels(region).name,'Interpreter','None')
+        set(gca,'TickLength',[0 0],'XTick',[],'YTick',[])
+        colormap(viridis)
+    end
+    
+
+    
+    
+end
+
 %% Compare the cluster averages
 
 close all
