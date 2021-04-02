@@ -8,7 +8,7 @@ switch flag
         random_vector = [];
     case 1 % subsample to 95% of the minimum number
         % get the number from varargin
-        min_number = ceil(varargin{1}*0.95);
+        min_number = ceil(varargin{1}*varargin{2});
         
         % get the randomization vector
         random_vector = randperm(size(data_in,1),min_number);

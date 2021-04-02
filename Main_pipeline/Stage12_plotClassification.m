@@ -16,6 +16,8 @@ labels = load(constants_path,'labels');
 labels = labels.labels;
 
 af_labels = labels.af;
+% add the all regions label
+af_labels(14).name = 'All';
 celltype_labels = labels.celltype;
 
 
@@ -31,8 +33,14 @@ num_regions = size(confusion_cell,3);
 
 % get the number of categories
 switch params.subsample_flag
+    case 0 
+        num_cat = 26;
     case 1 % stimulus categories
         num_cat = 4;
+    case 2 % stimulus and time
+        num_cat = 16;
+        
+        
 end
 
 % allocate memory for the averages across fish for each region and celltype
@@ -111,8 +119,42 @@ for celltype = 1:num_celltype
 %         set(gca,'CLim',[0 1])
         set(gca,'XTick',1:4,'XTickLabel',{'ON','OMR','BE','WE'},...
             'XTickLabelRotation',45,'TickLabelInterpreter','None',...
-            'XLim',[0 num_cat+1],'YLim',[0.2 0.7])
+            'XLim',[0 num_cat+1],'YLim',[0 1])
         ylabel(af_labels(region).name,'Interpreter','None')
+        hold on
+        plot(get(gca,'XLim'),[0.25 0.25],'r--')
+        
+    end
+    set(gcf,'Color','w')
+    sgtitle(celltype_labels{celltype})
+end
+autoArrangeFigures
+%% Plot per stimulus performance split by stimuli
+
+close all
+
+% for all celltypes
+for celltype = 1:num_celltype
+    figure
+    % for all the stimuli
+    for stim = 1:num_cat
+        subplot(round(sqrt(num_cat)),ceil(sqrt(num_cat)),stim)
+        % get the matrix
+        ref_matrix = squeeze(average_matrices(:,celltype,stim,:));
+        current_sem = squeeze(sem_matrices(:,celltype,stim,:));
+        % normalize to rows
+        current_matrix = ref_matrix(:,stim)./sum(ref_matrix,2);
+        current_sem = current_sem(:,stim)./sum(ref_matrix,2);
+        
+        
+%         plot(1:num_cat,diag(current_matrix),'ko')
+        errorbar(1:num_regions,current_matrix,current_sem,'ko')
+%         axis square
+%         set(gca,'CLim',[0 1])
+        set(gca,'XTick',1:num_regions,'XTickLabel',{af_labels.name},...
+            'XTickLabelRotation',45,'TickLabelInterpreter','None',...
+            'XLim',[0 num_regions+1],'YLim',[0 1])
+        ylabel(num2str(stim),'Interpreter','None')
         hold on
         plot(get(gca,'XLim'),[0.25 0.25],'r--')
         
