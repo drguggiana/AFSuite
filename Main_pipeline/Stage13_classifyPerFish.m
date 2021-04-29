@@ -7,9 +7,9 @@ Paths
 % define the number of reps per classifier
 num_classreps = 5;
 % define the flags
-subsample_flag = 0;
+subsample_flag = 3;
 label_flag = 0;
-roi_flag = 1;
+roi_flag = 2;
 roi_percentage = 0.95;
 
 % assemble the parameter structure
@@ -58,6 +58,23 @@ cell_info = vertcat(cell_info{:});
 region_info = vertcat(region_info{:});
 % turn nans into 0
 region_info(isnan(region_info)) = 0;
+
+% allocate memory for the roi numbers
+total_rois = zeros(num_regions+1,3,num_fish);
+% pre calculate the number of terminals per AF and type
+for region = 1:num_regions
+    for celltype = 1:3
+        temp_selection = (region_info==str2double(af_labels(region).number))&region_info>0;
+        temp_fish = fish_ori_all(temp_selection);
+        temp_info = cell_info(temp_selection);
+        for fish = 1:num_fish
+            total_rois(region,celltype,fish) = sum(temp_fish==fish&temp_info==celltype-1);
+        end
+    end
+end
+% % get the minima
+% max_perfish = max(max(total_rois,[],3),[],1);
+
 % for all the regions
 for region = 1:num_regions+1
     
@@ -71,15 +88,17 @@ for region = 1:num_regions+1
             af_fish_ori = fish_ori_all(selection_vector);
             af_cell_info = cell_info(selection_vector);
             af_conc_trace = conc_trace_all(selection_vector,:,:,:);
+            af_region = region_info(selection_vector);
         else
             af_fish_ori = fish_ori_all;
             af_cell_info = cell_info;
             af_conc_trace = conc_trace_all;
+            af_region = region_info;
         end
-        % get the number of traces to use per fish/celltype
-        fish_numbers = af_fish_ori(af_cell_info==celltype-1);
-        counts = count_occurrences(fish_numbers,1:num_fish);
-        min_perfish = min(counts);
+%         % get the number of traces to use per fish/celltype
+%         fish_numbers = af_fish_ori(af_cell_info==celltype-1);
+%         counts = count_occurrences(fish_numbers,1:num_fish);
+%         min_perfish = min(counts);
         
         % for all celltypes
         for fish = 1:num_fish
@@ -87,17 +106,19 @@ for region = 1:num_regions+1
             
             % get the traces 
             conc_trace = af_conc_trace(af_fish_ori==fish&af_cell_info==celltype-1,:,:,:);
+%             % get the region info
+%             fish_region = af_region(af_fish_ori==fish&af_cell_info==celltype-1);
             % select the target time span
             conc_trace = conc_trace(:,21:68,:,:);
             % allocate memory for the reps
             rep_results = cell(num_classreps,2);
             % for all the classreps
-            for classr = 1:num_classreps
+            parfor classr = 1:num_classreps
                 
                 % subsample based on the stimulus
                 [subsampled_traces,random_time] = subsample_data(conc_trace,subsample_flag);
                 % subsample based on the rois
-                [subsampled_traces,random_rois] = subsample_roi(subsampled_traces,roi_flag,min_perfish,roi_percentage);
+                [subsampled_traces,random_rois] = subsample_roi(subsampled_traces,roi_flag,region,roi_percentage,total_rois(:,celltype,fish));
                 % generate the label vector
                 label_vector = label_maker(subsampled_traces,label_flag);
                 % reshape the data and labels to 2D
@@ -107,7 +128,7 @@ for region = 1:num_regions+1
                 subsampled_traces = normalize(subsampled_traces');
                 % set up the template
 %                 t = templateSVM('KernelFunction','linear','Standardize',1);
-                t = templateLinear('Lambda',1e-4,'Regularization','lasso');
+                t = templateLinear('Lambda',1e-5,'Regularization','lasso');
                 % train the classifier
                 model = fitcecoc(subsampled_traces,label_vector,'Prior','Uniform','Learners',t,...
                     'KFold',5,'Coding','onevsall');
@@ -116,8 +137,8 @@ for region = 1:num_regions+1
                 label_predicted = kfoldPredict(model);
                 conf_matrix = confusionmat(label_vector,label_predicted);
                 % save for averaging
-                rep_results{classr,1} = label_predicted;
-                rep_results{classr,2} = conf_matrix;
+                rep_results(classr,:) = {label_predicted,conf_matrix};
+%                 rep_results{classr,2} = conf_matrix;
                 
                 % save the randomization vectors
                 randomtime_cell{fish,celltype,region,classr} = random_time;
