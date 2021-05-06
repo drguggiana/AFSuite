@@ -39,6 +39,9 @@ switch params.subsample_flag
         num_cat = 4;
     case 2 % stimulus and time
         num_cat = 16;
+    case 3
+        num_cat = 104;
+        timepoints = 4;
         
         
 end
@@ -158,6 +161,69 @@ for celltype = 1:num_celltype
         hold on
         plot(get(gca,'XLim'),[0.25 0.25],'r--')
         
+    end
+    set(gcf,'Color','w')
+    sgtitle(celltype_labels{celltype})
+end
+autoArrangeFigures
+%% Plot matrices with performance for stim/AF
+
+close all
+% for all celltypes
+for celltype = 1:num_celltype
+    figure
+
+    % allocate memory for the performance
+    performance_matrix = zeros(num_regions,num_cat);
+    % for all the regions
+    for region = 1:num_regions
+        % get the current region matrix
+        curr_region = squeeze(average_matrices(region,celltype,:,:));
+        % get the performance
+        performance_matrix(region,:) = diag(curr_region)./sum(curr_region,2);
+    end
+    
+    
+    
+    % for all the time points
+    for timepoint = 1:timepoints
+%         figure
+        subplot(timepoints,1,timepoint)
+        %             subplot(round(sqrt(num_cat)),ceil(sqrt(num_cat)),stim)
+
+        % get the stimuli for this time point
+        current_timepoint = performance_matrix(:,timepoint:timepoints:num_cat);
+        % normalize by columns
+%         current_timepoint = normr_1(current_timepoint,2);
+        % normalize to the last row (no ablation)
+        current_timepoint = current_timepoint./current_timepoint(end,:);
+        imagesc(current_timepoint')
+        
+        %         % get the matrix
+        %         ref_matrix = squeeze(average_matrices(:,celltype,stim,:));
+        %         current_sem = squeeze(sem_matrices(:,celltype,stim,:));
+        %         % normalize to rows
+        %         current_matrix = ref_matrix(:,stim)./sum(ref_matrix,2);
+        %         current_sem = current_sem(:,stim)./sum(ref_matrix,2);
+        %
+        %
+        % %         plot(1:num_cat,diag(current_matrix),'ko')
+        %         errorbar(1:num_regions,current_matrix,current_sem,'ko')
+        %         axis square
+        %         set(gca,'CLim',[0 1])
+        set(gca,'TickLength',[0 0])
+        if timepoint ~= timepoints
+            set(gca,'XTick',[])
+        else
+            set(gca,'XTick',1:num_regions,'XTickLabel',{af_labels.name},...
+            'XTickLabelRotation',45,'TickLabelInterpreter','None')
+        end
+%         set(gca,'XTick',1:num_regions,'XTickLabel',{af_labels.name},...
+%             'XTickLabelRotation',45,'TickLabelInterpreter','None',...
+%             'XLim',[0 num_regions+1],'YLim',[0 1])
+%         ylabel(num2str(stim),'Interpreter','None')
+%         hold on
+%         plot(get(gca,'XLim'),[0.25 0.25],'r--')
     end
     set(gcf,'Color','w')
     sgtitle(celltype_labels{celltype})
