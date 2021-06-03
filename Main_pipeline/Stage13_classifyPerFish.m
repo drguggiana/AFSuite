@@ -99,13 +99,22 @@ for region = 1:num_regions+1
 %         fish_numbers = af_fish_ori(af_cell_info==celltype-1);
 %         counts = count_occurrences(fish_numbers,1:num_fish);
 %         min_perfish = min(counts);
+
+        af_temp = cell(num_fish,3);
+        % for all the fish
+        for fish = 1:num_fish
+            % for all the cell types
+            af_temp{fish} = af_conc_trace(af_fish_ori==fish&af_cell_info==celltype-1,:,:,:);
+        end
         
         % for all celltypes
-        for fish = 1:num_fish
+        parfor fish = 1:num_fish
             disp(strcat('Fish:',num2str(fish),'type:',num2str(celltype),'region:',num2str(region)))
             
+            
             % get the traces 
-            conc_trace = af_conc_trace(af_fish_ori==fish&af_cell_info==celltype-1,:,:,:);
+            conc_trace = af_conc_trace{fish};
+%             conc_trace = af_conc_trace(af_fish_ori==fish&af_cell_info==celltype-1,:,:,:);
 %             % get the region info
 %             fish_region = af_region(af_fish_ori==fish&af_cell_info==celltype-1);
             % select the target time span
@@ -113,7 +122,7 @@ for region = 1:num_regions+1
             % allocate memory for the reps
             rep_results = cell(num_classreps,2);
             % for all the classreps
-            parfor classr = 1:num_classreps
+            for classr = 1:num_classreps
                 
                 % subsample based on the stimulus
                 [subsampled_traces,random_time] = subsample_data(conc_trace,subsample_flag);

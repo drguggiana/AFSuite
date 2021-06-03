@@ -9,6 +9,9 @@ target_path = uipickfiles('FilterSpec',classification_path);
 file_contents = load(target_path{1});
 
 confusion_cell = file_contents.confusion_cell;
+if contains(target_path{1},'Combined')
+    confusion_cell = reshape(confusion_cell,size(confusion_cell,1),1,size(confusion_cell,2));
+end
 params = file_contents.params;
 
 % load the labels
@@ -37,9 +40,10 @@ switch params.subsample_flag
         num_cat = 26;
     case 1 % stimulus categories
         num_cat = 4;
-    case 2 % stimulus and time
+    case 2 % categories and time
         num_cat = 16;
-        
+    case 3 % all stimuli and time
+        num_cat = 104;
         
 end
 
