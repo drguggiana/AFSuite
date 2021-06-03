@@ -193,6 +193,9 @@ for celltype = 1:num_celltype
 
         % get the stimuli for this time point
         current_timepoint = performance_matrix(:,timepoint:timepoints:num_cat);
+        
+        % leave only the 2 relevant directions
+        current_timepoint = current_timepoint(:,[1 10 4 8 13 17 21 24]);
         % normalize by columns
 %         current_timepoint = normr_1(current_timepoint,2);
         % normalize to the last row (no ablation)
